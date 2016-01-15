@@ -8,49 +8,69 @@
  * https://github.com/luis-almeida
  */
 
-;(function($) {
+!(function ($) {
+  'use strict';
 
-  $.fn.unveil = function(threshold, callback) {
+  $.fn.unveil = function (target, options) {
+    options = options || {};
+    var $target = $(target || window),
+      buffer = options.buffer || 120,
+      data_bkg = options.bkg || 'data-bkg',
+      data_src = options.src || 'data-src',
+      fade = options.fade || '.fade',
+      fadeInClass = options.fadeIn || 'in',
+      images = this,
+      inview,
+      placeholder = options.placeholder,
+      src = 'src';
+    if (placeholder) {
+      $('img[src!=""]', images).each(function (i, e) {
+        e.setAttribute(data_src, e.getAttribute(src));
+        e.setAttribute(src, placeholder);
+      });
+      $('[' + data_bkg + '!=""]', images).each(function (i, e) {
+        e.style.backgroundImage = "url('" + placeholder + "')";
+      });
+    }
 
-    var $w = $(window),
-        th = threshold || 0,
-        retina = window.devicePixelRatio > 1,
-        attrib = retina? "data-src-retina" : "data-src",
-        images = this,
-        loaded;
+    images.one('unveil', function () {
+      var e = this;
+      if (e.getAttribute(data_src)) {
+        e.setAttribute(src,
+        e.getAttribute(data_src));
+        e.removeAttribute(data_src);
+        fadeIn();
+      }
 
-    this.one("unveil", function() {
-      var source = this.getAttribute(attrib);
-      source = source || this.getAttribute("data-src");
-      if (source) {
-        this.setAttribute("src", source);
-        if (typeof callback === "function") callback.call(this);
+      if (e.getAttribute(data_bkg)) {
+        e.style.backgroundImage = "url('" + e.getAttribute(data_bkg) + "')";
+        e.removeAttribute(data_bkg);
+        fadeIn();
+      }
+
+      function fadeIn() {
+        if ($(e).is(fade)) {
+          $(e).addClass(fadeInClass);
+        }
       }
     });
 
-    function unveil() {
-      var inview = images.filter(function() {
-        var $e = $(this);
-        if ($e.is(":hidden")) return;
-
-        var wt = $w.scrollTop(),
-            wb = wt + $w.height(),
-            et = $e.offset().top,
-            eb = et + $e.height();
-
-        return eb >= wt - th && et <= wb + th;
+    var unveil = function () {
+      inview = images.filter(function () {
+        var topOfContainer = Math.max(0, $target.scrollTop()),
+          bottomOfContainer = $target.height() + buffer,
+          topOfImage = $(this).offset().top,
+          height = $(this).height();
+        return topOfImage + height >= topOfContainer &&
+          topOfImage <= topOfContainer + bottomOfContainer;
       });
 
-      loaded = inview.trigger("unveil");
-      images = images.not(loaded);
-    }
-
-    $w.on("scroll.unveil resize.unveil lookup.unveil", unveil);
+      images = images.not(inview.trigger('unveil'));
+    };
 
     unveil();
 
-    return this;
-
+    $target.on('scroll', unveil);
   };
 
 })(window.jQuery || window.Zepto);
